@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<base target="_blank">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>스크랩북</title>
+<meta name="theme-color" content="#f6f8fb">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="스크랩북">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<style>
+    :root {
+    /* 메인: 블루 (132,162,192) · 서브: 핑크 (245,182,199) · 화이트 (255,255,255) */
+    --primary: #84a2c0; --primary-ink: #4f6f8f; --primary-soft: #e8eef5;
+    --pink: #f5b6c7; --pink-ink: #b8506f; --pink-soft: #fdeef2;
+    --bg: #f6f8fb; --surface: #ffffff; --ink: #24303c; --muted: #7d8794; --faint: #b3bcc6;
+    --line: #e3e9f0; --chip: #eef2f6;
+    --accent: var(--primary-ink); --accent-soft: var(--primary-soft);
+    --shadow: 0 1px 2px rgba(40,60,90,.05), 0 4px 14px rgba(40,60,90,.06);
+    --scrim: rgba(20,30,45,.38);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --primary: #9db6cf; --primary-ink: #b9cde0; --primary-soft: #26313d;
+      --pink: #f5b6c7; --pink-ink: #f5b6c7; --pink-soft: #3a2a31;
+      --bg: #13171c; --surface: #1c2229; --ink: #eef2f6; --muted: #929ca8; --faint: #56606b;
+      --line: #2a323b; --chip: #252d36;
+      --shadow: none; --scrim: rgba(0,0,0,.55);
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  input, select, textarea, button { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 0 16px 110px; }
+  .bar { padding-top: max(18px, env(safe-area-inset-top)) !important; }
+
+  /* 상단 */
+  .bar {
+    position: sticky; top: 0; z-index: 5; background: var(--bg);
+    padding: 18px 0 12px; display: flex; align-items: center; gap: 10px;
+  }
+  .bar h1 { font-size: 24px; margin: 0; letter-spacing: -0.03em; flex: 1; min-width: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar h1 .ico { margin-right: 6px; }
+  .bar .sub { color: var(--muted); font-size: 13px; font-weight: 500; margin-left: 6px; }
+  .iconbtn {
+    flex: none; width: 38px; height: 38px; border-radius: 12px; border: 1px solid var(--line);
+    background: var(--surface); display: grid; place-items: center; font-size: 17px;
+  }
+  .search {
+    width: 100%; padding: 11px 14px; border-radius: 14px; border: 1px solid var(--line);
+    background: var(--surface); outline: none; margin-bottom: 16px;
+  }
+  .search:focus { border-color: var(--accent); }
+
+  /* 홈 상단 반반 타일: 정리 안 됨 / 전체 링크 */
+  .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 22px; }
+  .qt { border: 0; border-radius: 20px; padding: 16px; text-align: left; min-height: 112px;
+    display: flex; flex-direction: column; justify-content: space-between; transition: transform .12s; }
+  .qt:active { transform: scale(.97); }
+  .qt .top { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+  .qt .big { font-size: 26px; line-height: 1; }
+  .qt .arr { font-size: 20px; opacity: .55; }
+  .qt b { display: block; font-size: 15px; margin-top: 12px; }
+  .qt .num { font-size: 28px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; }
+  .qt.inbox { background: var(--pink-soft); color: var(--pink-ink); }
+  .qt.inbox.done { opacity: .6; }
+  .qt.all { background: var(--primary-soft); color: var(--primary-ink); }
+
+  .section-label { font-size: 13px; color: var(--muted); font-weight: 600; margin: 0 0 10px 2px; }
+
+  /* 폴더 타일 */
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  @media (min-width: 560px) { .grid { grid-template-columns: repeat(3, 1fr); } }
+  .tile {
+    text-align: left; border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow);
+    border-radius: 20px; padding: 16px 16px 14px; min-height: 128px;
+    display: flex; flex-direction: column; justify-content: space-between; transition: transform .12s;
+  }
+  .tile:active { transform: scale(.97); }
+  .tile .ico { font-size: 30px; line-height: 1; }
+  .tile .name { font-weight: 700; font-size: 16px; margin-top: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tile .info { color: var(--muted); font-size: 12px; }
+  .tile.new { border-style: dashed; background: transparent; box-shadow: none; color: var(--muted);
+    align-items: center; justify-content: center; gap: 4px; }
+  .tile.new .ico { font-size: 24px; }
+
+  /* 스크랩 카드 */
+  .list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 13px 14px; box-shadow: var(--shadow); }
+  .meta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+  .badge { background: var(--pink-soft); color: var(--pink-ink); padding: 2px 8px; border-radius: 6px; font-weight: 700; }
+  .badge.link { background: var(--primary-soft); color: var(--primary-ink); }
+  .ftag { background: var(--chip); padding: 2px 8px; border-radius: 6px; }
+  .memo { margin: 8px 0 10px; border: 0; width: 100%; resize: none; background: transparent; outline: none;
+    padding: 0; min-height: 22px; font-size: 15px; }
+  .memo::placeholder { color: var(--faint); }
+  .actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .ghost { border: 1px solid var(--line); background: transparent; padding: 6px 11px; border-radius: 10px;
+    font-size: 13px; text-decoration: none; color: var(--ink); }
+  .ghost.del { margin-left: auto; color: var(--muted); border-color: transparent; padding: 6px 4px; }
+  .embed { margin-top: 10px; border-radius: 12px; overflow: hidden; background: var(--bg); }
+  .embed iframe { width: 100%; height: 560px; border: 0; display: block; }
+
+  /* 미분류 빠른 분류 */
+  .sort { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); }
+  .sort small { color: var(--muted); font-size: 12px; }
+  .sortchips { display: flex; gap: 6px; overflow-x: auto; padding-top: 6px; scrollbar-width: none; }
+  .sortchips::-webkit-scrollbar { display: none; }
+  .sc { flex: none; border: 0; background: var(--chip); border-radius: 999px; padding: 6px 12px; font-size: 13px; white-space: nowrap; }
+  .sc:active { background: var(--primary); color: #fff; }
+
+  /* 전체 링크 */
+  .toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .toolbar .chips { flex: 1; min-width: 0; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+  .toolbar .chips::-webkit-scrollbar { display: none; }
+  .fchip { flex: none; border: 0; background: var(--chip); border-radius: 999px; padding: 6px 12px; font-size: 13px; white-space: nowrap; }
+  .fchip.on { background: var(--primary-ink); color: #fff; }
+  .copyall { flex: none; height: 38px; border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 0 12px; font-size: 13px; font-weight: 600; }
+  .links { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); overflow: hidden; }
+  .lrow { display: flex; align-items: center; gap: 10px; padding: 11px 12px 11px 14px; border-bottom: 1px solid var(--line); }
+  .lrow:last-child { border-bottom: 0; }
+  .lrow .ico { font-size: 20px; flex: none; }
+  .lmain { flex: 1; min-width: 0; }
+  .lurl { display: block; color: var(--ink); font-size: 14px; font-weight: 600; text-decoration: none;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lsub { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lbtn { flex: none; border: 0; background: var(--chip); border-radius: 9px; padding: 6px 9px; font-size: 12px; }
+  .urlline { display: block; margin: -4px 0 10px; font-size: 12px; color: var(--muted); text-decoration: none;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .empty { text-align: center; color: var(--muted); padding: 56px 0; }
+  .empty .big { font-size: 40px; display: block; margin-bottom: 6px; }
+
+  /* 떠 있는 추가 버튼 */
+  .fab {
+    position: fixed; right: 20px; bottom: 24px; z-index: 6; width: 56px; height: 56px; border-radius: 18px;
+    border: 0; background: var(--primary); color: #fff; font-size: 28px; line-height: 1;
+    box-shadow: 0 6px 20px rgba(100,130,165,.38);
+  }
+
+  /* 바텀시트 */
+  .scrim { position: fixed; inset: 0; background: var(--scrim); z-index: 20; opacity: 0; pointer-events: none; transition: opacity .2s; }
+  .scrim.show { opacity: 1; pointer-events: auto; }
+  .sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 21; background: var(--surface);
+    border-radius: 22px 22px 0 0; padding: 10px 18px 28px; max-width: 720px; margin: 0 auto;
+    transform: translateY(105%); transition: transform .25s cubic-bezier(.2,.8,.2,1); max-height: 82vh; overflow-y: auto;
+  }
+  .sheet.show { transform: translateY(0); }
+  .grab { width: 38px; height: 5px; border-radius: 3px; background: var(--line); margin: 0 auto 12px; }
+  .sheet h2 { font-size: 18px; margin: 0 0 14px; }
+  .field { display: block; margin-bottom: 12px; }
+  .field span { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; font-weight: 600; }
+  .field input, .field select {
+    width: 100%; padding: 11px 13px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); outline: none;
+  }
+  .field input:focus { border-color: var(--accent); }
+  .emojis { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
+  .emo { border: 1px solid transparent; background: var(--bg); border-radius: 12px; aspect-ratio: 1; font-size: 20px; padding: 0; }
+  .emo.on { border-color: var(--primary); background: var(--primary-soft); }
+  .btnrow { display: flex; gap: 8px; margin-top: 18px; }
+  .btn { flex: 1; border: 0; background: var(--primary-ink); color: #fff; padding: 13px; border-radius: 14px; font-weight: 700; }
+  .btn.sub { background: var(--chip); color: var(--ink); }
+  .btn.danger { flex: none; background: transparent; color: var(--pink-ink); padding: 13px 6px; }
+  .btn:disabled { opacity: .5; }
+  .pick { width: 100%; display: flex; align-items: center; gap: 12px; border: 0; background: transparent;
+    padding: 12px 6px; border-bottom: 1px solid var(--line); text-align: left; font-size: 16px; }
+  .pick .ico { font-size: 22px; }
+  .pick .n { margin-left: auto; color: var(--muted); font-size: 13px; }
+  .pick.cur { color: var(--muted); }
+
+  /* 첫 실행 설정 */
+  .setup { padding: 40px 4px; }
+  .setup h1 { font-size: 26px; letter-spacing: -0.03em; margin: 0 0 6px; }
+  .setup p { color: var(--muted); margin: 0 0 22px; font-size: 14px; }
+  .setup .btn { width: 100%; margin-top: 8px; }
+  .setup .err { color: var(--pink-ink); font-size: 13px; min-height: 18px; margin-top: 10px; }
+  .loading { text-align: center; color: var(--muted); padding: 80px 0; }
+  .toast {
+    position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%) translateY(16px); z-index: 30;
+    background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 12px; font-size: 14px;
+    opacity: 0; transition: .2s; pointer-events: none; max-width: calc(100% - 32px); white-space: nowrap;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<button class="fab" id="fab" aria-label="링크 추가">+</button>
+
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet"><div class="grab"></div><div id="sheetBody"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+  /* ── 접속 정보: 이 기기에만 저장돼요 (코드에는 KEY가 들어가지 않아요) ── */
+  const CFG_KEY = 'scrapbook.config';
+  function readCfg() { try { return JSON.parse(localStorage.getItem(CFG_KEY) || 'null'); } catch (e) { return null; } }
+  function saveCfg(c) { try { localStorage.setItem(CFG_KEY, JSON.stringify(c)); } catch (e) {} }
+  function clearCfg() { try { localStorage.removeItem(CFG_KEY); } catch (e) {} }
+  // 주소 뒤에 #api=…&key=… 를 붙여 열면 자동으로 저장하고 주소에서 지워요
+  (function fromHash() {
+    const h = new URLSearchParams(location.hash.slice(1));
+    if (h.get('api') && h.get('key')) {
+      saveCfg({ api: h.get('api'), key: h.get('key') });
+      history.replaceState(null, '', location.pathname + location.search);
+    }
+  })();
+  let CFG = readCfg();
+  const INBOX = '미분류';
+  const ALL = '__all__';
+  const EMOJIS = ['📁','✨','🍳','☕','✈️','🏠','👗','💄','🛍️','💪','🐶','🎬','📚','💡','🎨','🎵'];
+  const state = { folders: [], items: [], view: 'home', folder: null, q: '', allFilter: '__all__' };
+  const $ = id => document.getElementById(id);
+
+  /* ── 서버 호출 ── */
+  async function rawCall(cfg, fn, args) {
+    // text/plain 으로 보내야 Apps Script가 별도 허가(CORS 사전요청) 없이 받아줘요
+    const res = await fetch(cfg.api, {
+      method: 'POST', redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ key: cfg.key, fn: fn, args: args })
+    });
+    let out;
+    try { out = await res.json(); } catch (e) { throw new Error('서버 응답을 읽지 못했어요 (웹앱 주소와 배포 권한을 확인해 주세요)'); }
+    if (!out.ok) throw new Error(out.error === 'unauthorized' ? 'KEY가 맞지 않아요' : out.error);
+    return out.data;
+  }
+  async function call(fn, ...args) {
+    try { return await rawCall(CFG, fn, args); }
+    catch (err) {
+      toast(err && err.message ? err.message : '오류가 났어요');
+      if (err && err.message === 'KEY가 맞지 않아요') { clearCfg(); CFG = null; showSetup('KEY가 바뀌었어요. 다시 입력해 주세요.'); }
+      throw err;
+    }
+  }
+
+  function showSetup(msg) {
+    $('fab').style.display = 'none';
+    const c = readCfg() || {};
+    $('app').innerHTML = `
+      <div class="setup">
+        <h1>스크랩북 연결</h1>
+        <p>처음 한 번만 입력하면 이 기기에 저장돼요.</p>
+        <label class="field"><span>웹앱 주소 (…/exec 로 끝나는 주소)</span>
+          <input id="cApi" type="url" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(c.api || '')}"></label>
+        <label class="field"><span>KEY</span>
+          <input id="cKey" placeholder="setup 실행 로그의 16자리 KEY" value="${esc(c.key || '')}" autocapitalize="off" autocomplete="off"></label>
+        <button class="btn" id="cSave" type="button">연결하기</button>
+        <div class="err" id="cErr">${esc(msg || '')}</div>
+      </div>`;
+    $('cSave').onclick = async () => {
+      let api = $('cApi').value.trim();
+      const key = $('cKey').value.trim();
+      // ?key=… 가 붙은 예전 주소를 붙여넣어도 알아서 나눠요
+      const m = api.match(/^(.*?\/exec)\?.*key=([^&#]+)/);
+      const cfg = { api: m ? m[1] : api.replace(/\?.*$/, ''), key: key || (m ? decodeURIComponent(m[2]) : '') };
+      if (!/^https:\/\/script\.google(usercontent)?\.com\/.+\/exec$/.test(cfg.api)) { $('cErr').textContent = '…/exec 로 끝나는 웹앱 주소를 넣어 주세요'; return; }
+      if (!cfg.key) { $('cErr').textContent = 'KEY를 입력해 주세요'; return; }
+      $('cSave').disabled = true; $('cErr').textContent = '연결 확인 중…';
+      try {
+        const data = await rawCall(cfg, 'api_load', []);
+        saveCfg(cfg); CFG = cfg;
+        state.folders = data.folders; state.items = data.items; state.view = 'home';
+        $('fab').style.display = '';
+        render(); toast('연결됐어요');
+      } catch (err) {
+        $('cErr').textContent = err.message || '연결에 실패했어요';
+        $('cSave').disabled = false;
+      }
+    };
+  }
+  async function load() {
+    const data = await call('api_load');
+    state.folders = data.folders;
+    state.items = data.items;
+    if (state.view === 'folder' && state.folder !== ALL && !folderOf(state.folder)) state.view = 'home';
+    render();
+  }
+
+  /* ── 도우미 ── */
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  const folderOf = name => state.folders.find(f => f.name === name);
+  const iconOf = name => (folderOf(name) || {}).icon || '📁';
+  const typeLabel = t => t === 'reel' ? '릴스' : t === 'video' ? '영상' : t === 'link' ? '링크' : '게시물';
+  const userFolders = () => state.folders.filter(f => f.name !== INBOX);
+  function fmtDate(ms) {
+    if (!ms) return '';
+    const d = new Date(ms), now = new Date();
+    const days = Math.floor((now - d) / 864e5);
+    if (days < 1 && d.getDate() === now.getDate()) return '오늘';
+    if (days < 2) return '어제';
+    if (days < 7) return days + '일 전';
+    return (d.getFullYear() === now.getFullYear() ? '' : d.getFullYear() + '.') + (d.getMonth() + 1) + '.' + d.getDate();
+  }
+  const shortUrl = u => String(u).replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+  async function copyText(text) {
+    try { await navigator.clipboard.writeText(text); return true; } catch (e) {}
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    let ok = false; try { ok = document.execCommand('copy'); } catch (e) {}
+    ta.remove(); return ok;
+  }
+  function toast(msg) {
+    const t = $('toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2000);
+  }
+  function stats() {
+    const s = {};
+    state.items.forEach(i => {
+      const x = s[i.folder] || (s[i.folder] = { n: 0, last: 0 });
+      x.n++; x.last = Math.max(x.last, i.savedAt);
+    });
+    return s;
+  }
+
+  /* ── 화면 ── */
+  function render() {
+    state.view === 'home' ? renderHome() : renderFolder();
+    document.querySelectorAll('.memo').forEach(autoGrow);
+  }
+
+  function renderHome() {
+    const st = stats();
+    const q = state.q.trim().toLowerCase();
+    let html = `
+      <div class="bar"><h1>스크랩북</h1><button class="iconbtn" id="settings" aria-label="연결 설정">⚙︎</button></div>
+      <input class="search" id="q" type="search" placeholder="메모·폴더 검색" value="${esc(state.q)}">`;
+
+    if (q) {
+      const hits = state.items.filter(i => i.memo.toLowerCase().includes(q) || i.folder.toLowerCase().includes(q));
+      html += `<p class="section-label">검색 결과 ${hits.length}개</p>` + cards(hits, true);
+    } else {
+      const inbox = st[INBOX] ? st[INBOX].n : 0;
+      html += `
+        <div class="duo">
+          <button class="qt inbox${inbox ? '' : ' done'}" data-open="${INBOX}">
+            <div class="top"><span class="big">📥</span><span class="arr">›</span></div>
+            <div><b>정리 안 됨</b><div class="num">${inbox}</div></div>
+          </button>
+          <button class="qt all" data-open="${ALL}">
+            <div class="top"><span class="big">🗂️</span><span class="arr">›</span></div>
+            <div><b>전체 링크</b><div class="num">${state.items.length}</div></div>
+          </button>
+        </div>`;
+      html += `<p class="section-label">내 폴더</p><div class="grid">` +
+        userFolders().map(f => {
+          const x = st[f.name] || { n: 0, last: 0 };
+          return `<button class="tile" data-open="${esc(f.name)}">
+            <span class="ico">${esc(f.icon)}</span>
+            <div><div class="name">${esc(f.name)}</div>
+            <div class="info">${x.n}개${x.last ? ' · ' + fmtDate(x.last) : ''}</div></div>
+          </button>`;
+        }).join('') +
+        `<button class="tile new" id="newFolder"><span class="ico">＋</span>새 폴더</button>
+        </div>`;
+      if (!userFolders().length) html += `<p class="empty" style="padding:24px 0">폴더를 만들어 스크랩을 나눠 보세요</p>`;
+    }
+    $('app').innerHTML = html;
+    const qi = $('q');
+    qi.oninput = e => { state.q = e.target.value; const pos = qi.selectionStart; renderHome(); const n = $('q'); n.focus(); n.setSelectionRange(pos, pos); };
+  }
+
+  function renderFolder() {
+    if (state.folder === ALL) return renderAll();
+    const name = state.folder;
+    const isAll = false;
+    const items = isAll ? state.items : state.items.filter(i => i.folder === name);
+    const title = isAll ? '전체 보기' : name;
+    const icon = isAll ? '🗂️' : iconOf(name);
+    $('app').innerHTML = `
+      <div class="bar">
+        <button class="iconbtn" id="back" aria-label="뒤로">‹</button>
+        <h1><span class="ico">${esc(icon)}</span>${esc(title)}<span class="sub">${items.length}</span></h1>
+        ${isAll ? '' : '<button class="iconbtn" id="editFolder" aria-label="폴더 편집">⋯</button>'}
+      </div>` +
+      (items.length ? cards(items, isAll, name === INBOX)
+        : `<div class="empty"><span class="big">${esc(icon)}</span>${name === INBOX ? '모두 정리했어요!' : '아직 스크랩이 없어요'}</div>`);
+  }
+
+  function renderAll() {
+    const f = state.allFilter;
+    const st = stats();
+    const items = f === ALL ? state.items : state.items.filter(i => i.folder === f);
+    const chip = (name, label) => `<button class="fchip${f === name ? ' on' : ''}" data-filter="${esc(name)}">${label}</button>`;
+    $('app').innerHTML = `
+      <div class="bar">
+        <button class="iconbtn" id="back" aria-label="뒤로">‹</button>
+        <h1><span class="ico">🗂️</span>전체 링크<span class="sub">${items.length}</span></h1>
+        ${items.length ? '<button class="copyall" id="copyAll">전체 복사</button>' : ''}
+      </div>
+      <div class="toolbar">
+        <div class="chips">${chip(ALL, '전체 ' + state.items.length) +
+          state.folders.filter(x => st[x.name]).map(x => chip(x.name, esc(x.icon) + ' ' + esc(x.name) + ' ' + st[x.name].n)).join('')}</div>
+      </div>` +
+      (items.length ? '<div class="links">' + items.map(i => `
+        <div class="lrow card-lite" data-id="${esc(i.id)}">
+          <span class="ico">${esc(iconOf(i.folder))}</span>
+          <div class="lmain">
+            <a class="lurl" href="${esc(i.url)}">${esc(shortUrl(i.url))}</a>
+            <div class="lsub">${i.memo ? esc(i.memo) : typeLabel(i.type)} · ${esc(i.folder)} · ${fmtDate(i.savedAt)}</div>
+          </div>
+          <button class="lbtn lcopy" data-url="${esc(i.url)}">복사</button>
+          <button class="lbtn lmv" aria-label="폴더 이동">📁</button>
+        </div>`).join('') + '</div>'
+      : '<div class="empty"><span class="big">🗂️</span>아직 스크랩이 없어요</div>');
+  }
+
+  function cards(items, showFolder, quickSort) {
+    const targets = userFolders();
+    return '<div class="list">' + items.map(i => `
+      <div class="card" data-id="${esc(i.id)}">
+        <div class="meta">
+          <span class="badge${i.type === 'link' ? ' link' : ''}">${typeLabel(i.type)}</span>
+          ${showFolder ? `<span class="ftag">${esc(iconOf(i.folder))} ${esc(i.folder)}</span>` : ''}
+          <span>${fmtDate(i.savedAt)}</span>
+        </div>
+        <textarea class="memo" rows="1" placeholder="메모 추가…">${esc(i.memo)}</textarea>
+        <a class="urlline" href="${esc(i.url)}">🔗 ${esc(shortUrl(i.url))}</a>
+        <div class="actions">
+          ${i.type === 'link' ? '' : `<button class="ghost pv" data-code="${esc(i.shortcode)}">미리보기</button>`}
+          <a class="ghost" href="${esc(i.url)}">${i.type === 'link' ? '열기' : '인스타 열기'}</a>
+          ${quickSort ? '' : '<button class="ghost mv">📁 이동</button>'}
+          <button class="ghost del">삭제</button>
+        </div>
+        ${quickSort ? `<div class="sort"><small>어느 폴더에 넣을까요?</small><div class="sortchips">` +
+          targets.map(f => `<button class="sc" data-to="${esc(f.name)}">${esc(f.icon)} ${esc(f.name)}</button>`).join('') +
+          `<button class="sc" data-newto="1">＋ 새 폴더</button></div></div>` : ''}
+      </div>`).join('') + '</div>';
+  }
+
+  function autoGrow(el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; }
+
+  /* ── 바텀시트 ── */
+  function openSheet(html) {
+    $('sheetBody').innerHTML = html;
+    $('scrim').classList.add('show'); $('sheet').classList.add('show');
+  }
+  function closeSheet() { $('scrim').classList.remove('show'); $('sheet').classList.remove('show'); }
+  $('scrim').onclick = closeSheet;
+
+  function emojiPicker(selected) {
+    return `<div class="emojis">` + EMOJIS.map(e =>
+      `<button type="button" class="emo${e === selected ? ' on' : ''}" data-e="${e}">${e}</button>`).join('') + `</div>`;
+  }
+  function wireEmoji() {
+    $('sheetBody').querySelectorAll('.emo').forEach(b => b.onclick = () => {
+      $('sheetBody').querySelectorAll('.emo').forEach(x => x.classList.remove('on')); b.classList.add('on');
+    });
+  }
+  const pickedEmoji = () => (($('sheetBody').querySelector('.emo.on') || {}).dataset || {}).e || '📁';
+
+  // 새 폴더 (afterCreate: 만든 뒤 할 일)
+  function newFolderSheet(afterCreate) {
+    openSheet(`<h2>새 폴더</h2>
+      <label class="field"><span>이름</span><input id="fName" maxlength="40" placeholder="예: 레시피, 여행, 인테리어"></label>
+      <div class="field"><span>아이콘</span>${emojiPicker('📁')}</div>
+      <div class="btnrow"><button class="btn sub" id="cancel">취소</button><button class="btn" id="ok">만들기</button></div>`);
+    wireEmoji();
+    setTimeout(() => $('fName').focus(), 250);
+    $('cancel').onclick = closeSheet;
+    $('ok').onclick = async () => {
+      const name = $('fName').value.trim();
+      if (!name) return toast('이름을 입력해 주세요');
+      $('ok').disabled = true;
+      try {
+        await call('api_addFolder', name, pickedEmoji());
+        state.folders.push({ name, icon: pickedEmoji() });
+        closeSheet();
+        if (afterCreate) await afterCreate(name); else { toast('폴더를 만들었어요'); render(); }
+      } finally { const b = $('ok'); if (b) b.disabled = false; }
+    };
+  }
+
+  function editFolderSheet(name) {
+    const f = folderOf(name);
+    const inbox = name === INBOX;
+    openSheet(`<h2>폴더 편집</h2>
+      <label class="field"><span>이름</span><input id="fName" maxlength="40" value="${esc(name)}" ${inbox ? 'disabled' : ''}></label>
+      <div class="field"><span>아이콘</span>${emojiPicker(f.icon)}</div>
+      <div class="btnrow">
+        ${inbox ? '' : '<button class="btn danger" id="del">폴더 삭제</button>'}
+        <button class="btn sub" id="cancel">취소</button><button class="btn" id="ok">저장</button>
+      </div>`);
+    wireEmoji();
+    $('cancel').onclick = closeSheet;
+    $('ok').onclick = async () => {
+      const newName = inbox ? name : $('fName').value.trim();
+      if (!newName) return toast('이름을 입력해 주세요');
+      await call('api_updateFolder', name, newName, pickedEmoji());
+      state.folder = newName; closeSheet(); await load(); toast('저장했어요');
+    };
+    if (!inbox) $('del').onclick = async () => {
+      if (!confirm(`"${name}" 폴더를 지울까요?\n안에 있던 스크랩은 미분류로 옮겨져요.`)) return;
+      await call('api_deleteFolder', name);
+      state.view = 'home'; closeSheet(); await load(); toast('폴더를 지웠어요');
+    };
+  }
+
+  function moveSheet(id) {
+    const item = state.items.find(i => i.id === id);
+    const st = stats();
+    openSheet(`<h2>어느 폴더로 옮길까요?</h2>` +
+      state.folders.map(f => `<button class="pick${f.name === item.folder ? ' cur' : ''}" data-to="${esc(f.name)}">
+        <span class="ico">${esc(f.icon)}</span>${esc(f.name)}${f.name === item.folder ? ' (현재)' : ''}
+        <span class="n">${st[f.name] ? st[f.name].n : 0}</span></button>`).join('') +
+      `<button class="pick" data-newto="1"><span class="ico">＋</span>새 폴더 만들어서 옮기기</button>`);
+    $('sheetBody').onclick = async e => {
+      const b = e.target.closest('.pick'); if (!b) return;
+      $('sheetBody').onclick = null;
+      if (b.dataset.newto) return newFolderSheet(n => moveItem(id, n));
+      closeSheet();
+      if (b.dataset.to !== item.folder) await moveItem(id, b.dataset.to);
+    };
+  }
+
+  async function moveItem(id, to) {
+    const item = state.items.find(i => i.id === id);
+    item.folder = to;
+    render();
+    toast(iconOf(to) + ' ' + to + '(으)로 옮겼어요');
+    await call('api_updateItem', id, { folder: to });
+  }
+
+  function addSheet() {
+    const def = state.view === 'folder' && state.folder !== ALL ? state.folder : INBOX;
+    openSheet(`<h2>링크 추가</h2>
+      <label class="field"><span>링크</span><input id="aUrl" type="url" placeholder="인스타·유튜브·블로그 등 아무 링크"></label>
+      <label class="field"><span>폴더</span><select id="aFolder">${state.folders.map(f =>
+        `<option value="${esc(f.name)}"${f.name === def ? ' selected' : ''}>${esc(f.icon)} ${esc(f.name)}</option>`).join('')}</select></label>
+      <label class="field"><span>메모 (선택)</span><input id="aMemo" placeholder="나중에 찾기 쉽게 한 줄"></label>
+      <div class="btnrow"><button class="btn sub" id="cancel">취소</button><button class="btn" id="ok">저장</button></div>`);
+    setTimeout(() => $('aUrl').focus(), 250);
+    $('cancel').onclick = closeSheet;
+    $('ok').onclick = async () => {
+      const url = $('aUrl').value.trim();
+      if (!url) return toast('링크를 붙여넣어 주세요');
+      $('ok').disabled = true;
+      try {
+        const r = await call('api_add', url, $('aFolder').value, $('aMemo').value);
+        closeSheet();
+        toast(r.duplicate ? '이미 저장된 게시물이에요 (' + r.folder + ')' : '저장했어요');
+        await load();
+      } finally { const b = $('ok'); if (b) b.disabled = false; }
+    };
+  }
+
+  /* ── 이벤트 ── */
+  $('fab').onclick = addSheet;
+
+  $('app').addEventListener('click', async e => {
+    const open = e.target.closest('[data-open]');
+    if (open) { state.view = 'folder'; state.folder = open.dataset.open; state.allFilter = ALL; window.scrollTo(0, 0); return render(); }
+    if (e.target.closest('#back')) { state.view = 'home'; window.scrollTo(0, 0); return render(); }
+    if (e.target.closest('#newFolder')) return newFolderSheet();
+    if (e.target.closest('#settings')) return showSetup();
+    if (e.target.closest('#editFolder')) return editFolderSheet(state.folder);
+
+    const fc = e.target.closest('[data-filter]');
+    if (fc) { state.allFilter = fc.dataset.filter; return render(); }
+    if (e.target.closest('#copyAll')) {
+      const f = state.allFilter;
+      const list = (f === ALL ? state.items : state.items.filter(i => i.folder === f)).map(i => i.url);
+      return toast(await copyText(list.join('\n')) ? '링크 ' + list.length + '개를 복사했어요' : '복사에 실패했어요');
+    }
+    const row = e.target.closest('.lrow');
+    if (row) {
+      if (e.target.closest('.lcopy')) return toast(await copyText(e.target.closest('.lcopy').dataset.url) ? '링크를 복사했어요' : '복사에 실패했어요');
+      if (e.target.closest('.lmv')) return moveSheet(row.dataset.id);
+      return;
+    }
+
+    const card = e.target.closest('.card'); if (!card) return;
+    const id = card.dataset.id;
+
+    const sc = e.target.closest('.sc');
+    if (sc) {
+      if (sc.dataset.newto) return newFolderSheet(n => moveItem(id, n));
+      return moveItem(id, sc.dataset.to);
+    }
+    if (e.target.classList.contains('mv')) return moveSheet(id);
+    if (e.target.classList.contains('pv')) {
+      const ex = card.querySelector('.embed');
+      if (ex) { ex.remove(); e.target.textContent = '미리보기'; return; }
+      const box = document.createElement('div'); box.className = 'embed';
+      box.innerHTML = '<iframe loading="lazy" src="https://www.instagram.com/p/' +
+        encodeURIComponent(e.target.dataset.code) + '/embed/captioned/"></iframe>';
+      card.appendChild(box); e.target.textContent = '접기';
+    }
+    if (e.target.classList.contains('del')) {
+      if (!confirm('이 스크랩을 지울까요?')) return;
+      state.items = state.items.filter(i => i.id !== id);
+      render(); toast('지웠어요');
+      await call('api_deleteItem', id);
+    }
+  });
+
+  $('app').addEventListener('input', e => { if (e.target.classList.contains('memo')) autoGrow(e.target); });
+  $('app').addEventListener('focusout', async e => {
+    if (!e.target.classList.contains('memo')) return;
+    const id = e.target.closest('.card').dataset.id;
+    const item = state.items.find(i => i.id === id);
+    const v = e.target.value.trim();
+    if (!item || item.memo === v) return;
+    item.memo = v;
+    await call('api_updateItem', id, { memo: v });
+    toast('메모 저장됨');
+  });
+
+  if (CFG) {
+    $('app').innerHTML = '<div class="loading">불러오는 중…</div>';
+    load().catch(() => { if (CFG) $('app').innerHTML = '<div class="loading">불러오지 못했어요. <a href="#" id="retry" target="_self">다시 시도</a> · <a href="#" id="reset" target="_self">연결 다시 설정</a></div>'; });
+  } else {
+    showSetup();
+  }
+  document.addEventListener('click', e => {
+    if (e.target.id === 'retry') { e.preventDefault(); location.reload(); }
+    if (e.target.id === 'reset') { e.preventDefault(); showSetup(); }
+  });
+</script>
+</body>
+</html>
