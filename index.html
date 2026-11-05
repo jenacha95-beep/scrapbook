@@ -138,6 +138,25 @@
   .lbtn { flex: none; border: 0; background: var(--chip); border-radius: 9px; padding: 6px 9px; font-size: 12px; }
   .urlline { display: block; margin: -4px 0 10px; font-size: 12px; color: var(--muted); text-decoration: none;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* 컴팩트 스크랩 목록 */
+  .fsearch { margin: 0 0 12px; }
+  .list .item { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow);
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; transition: transform .12s, background .12s; }
+  .list .item.press { transform: scale(.98); background: var(--chip); }
+  .irow { display: flex; align-items: center; gap: 10px; padding: 12px 12px 12px 14px; cursor: pointer; min-width: 0; }
+  .ititle { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
+  .ititle.dim { color: var(--muted); }
+  .ifolder { flex: none; font-size: 16px; }
+  .chev { flex: none; color: var(--faint); font-size: 18px; line-height: 1; }
+  .list .item .sort { margin: 0 14px; padding: 0 0 12px; border-top: 0; }
+  .list .item .sortchips { padding-top: 0; }
+  .list { gap: 8px; }
+  .hint { color: var(--faint); font-size: 12px; text-align: center; margin: 14px 0 0; }
+  .menu-head { margin: 0 0 6px; }
+  .menu-head b { display: block; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .menu-head span { color: var(--muted); font-size: 13px; }
+  .pick.danger { color: var(--pink-ink); }
+  .pv-frame { width: 100%; height: 62vh; border: 0; border-radius: 12px; background: var(--bg); }
   .empty { text-align: center; color: var(--muted); padding: 56px 0; }
   .empty .big { font-size: 40px; display: block; margin-bottom: 6px; }
 
@@ -220,7 +239,7 @@
   const INBOX = '미분류';
   const ALL = '__all__';
   const EMOJIS = ['📁','✨','🍳','☕','✈️','🏠','👗','💄','🛍️','💪','🐶','🎬','📚','💡','🎨','🎵'];
-  const state = { folders: [], items: [], view: 'home', folder: null, q: '', allFilter: '__all__' };
+  const state = { folders: [], items: [], view: 'home', folder: null, q: '', fq: '', allFilter: '__all__' };
   const $ = id => document.getElementById(id);
 
   /* ── 서버 호출 ── */
@@ -340,7 +359,7 @@
 
     if (q) {
       const hits = state.items.filter(i => i.memo.toLowerCase().includes(q) || i.folder.toLowerCase().includes(q));
-      html += `<p class="section-label">검색 결과 ${hits.length}개</p>` + cards(hits, true);
+      html += `<p class="section-label">검색 결과 ${hits.length}개</p>` + list(hits, { showFolder: true });
     } else {
       const inbox = st[INBOX] ? st[INBOX].n : 0;
       html += `
@@ -372,72 +391,141 @@
     qi.oninput = e => { state.q = e.target.value; const pos = qi.selectionStart; renderHome(); const n = $('q'); n.focus(); n.setSelectionRange(pos, pos); };
   }
 
+  /* 폴더 안 · 전체 링크: 상단은 한 번만 그리고 목록만 다시 그려서 검색 중 키보드가 안 닫히게 */
+  function matchQ(i, q) {
+    return !q || i.memo.toLowerCase().includes(q) || i.url.toLowerCase().includes(q) || i.folder.toLowerCase().includes(q);
+  }
   function renderFolder() {
     if (state.folder === ALL) return renderAll();
     const name = state.folder;
-    const isAll = false;
-    const items = isAll ? state.items : state.items.filter(i => i.folder === name);
-    const title = isAll ? '전체 보기' : name;
-    const icon = isAll ? '🗂️' : iconOf(name);
+    const total = state.items.filter(i => i.folder === name).length;
     $('app').innerHTML = `
       <div class="bar">
         <button class="iconbtn" id="back" aria-label="뒤로">‹</button>
-        <h1><span class="ico">${esc(icon)}</span>${esc(title)}<span class="sub">${items.length}</span></h1>
-        ${isAll ? '' : '<button class="iconbtn" id="editFolder" aria-label="폴더 편집">⋯</button>'}
-      </div>` +
-      (items.length ? cards(items, isAll, name === INBOX)
-        : `<div class="empty"><span class="big">${esc(icon)}</span>${name === INBOX ? '모두 정리했어요!' : '아직 스크랩이 없어요'}</div>`);
+        <h1><span class="ico">${esc(iconOf(name))}</span>${esc(name)}<span class="sub" id="cnt">${total}</span></h1>
+        <button class="iconbtn" id="editFolder" aria-label="폴더 편집">⋯</button>
+      </div>
+      ${total ? `<input class="search fsearch" id="fq" type="search" placeholder="이 폴더에서 검색" value="${esc(state.fq)}">` : ''}
+      <div id="listWrap"></div>`;
+    fillList();
   }
 
   function renderAll() {
     const f = state.allFilter;
     const st = stats();
-    const items = f === ALL ? state.items : state.items.filter(i => i.folder === f);
     const chip = (name, label) => `<button class="fchip${f === name ? ' on' : ''}" data-filter="${esc(name)}">${label}</button>`;
     $('app').innerHTML = `
       <div class="bar">
         <button class="iconbtn" id="back" aria-label="뒤로">‹</button>
-        <h1><span class="ico">🗂️</span>전체 링크<span class="sub">${items.length}</span></h1>
-        ${items.length ? '<button class="copyall" id="copyAll">전체 복사</button>' : ''}
+        <h1><span class="ico">🗂️</span>전체 링크<span class="sub" id="cnt"></span></h1>
+        ${state.items.length ? '<button class="copyall" id="copyAll">전체 복사</button>' : ''}
       </div>
+      ${state.items.length ? `<input class="search fsearch" id="fq" type="search" placeholder="전체에서 검색" value="${esc(state.fq)}">` : ''}
       <div class="toolbar">
         <div class="chips">${chip(ALL, '전체 ' + state.items.length) +
           state.folders.filter(x => st[x.name]).map(x => chip(x.name, esc(x.icon) + ' ' + esc(x.name) + ' ' + st[x.name].n)).join('')}</div>
-      </div>` +
-      (items.length ? '<div class="links">' + items.map(i => `
-        <div class="lrow card-lite" data-id="${esc(i.id)}">
-          <span class="ico">${esc(iconOf(i.folder))}</span>
-          <div class="lmain">
-            <a class="lurl" href="${esc(i.url)}">${esc(shortUrl(i.url))}</a>
-            <div class="lsub">${i.memo ? esc(i.memo) : typeLabel(i.type)} · ${esc(i.folder)} · ${fmtDate(i.savedAt)}</div>
-          </div>
-          <button class="lbtn lcopy" data-url="${esc(i.url)}">복사</button>
-          <button class="lbtn lmv" aria-label="폴더 이동">📁</button>
-        </div>`).join('') + '</div>'
-      : '<div class="empty"><span class="big">🗂️</span>아직 스크랩이 없어요</div>');
+      </div>
+      <div id="listWrap"></div>`;
+    fillList();
   }
 
-  function cards(items, showFolder, quickSort) {
+  function visibleItems() {
+    const q = state.fq.trim().toLowerCase();
+    let items = state.items;
+    if (state.folder === ALL) { if (state.allFilter !== ALL) items = items.filter(i => i.folder === state.allFilter); }
+    else items = items.filter(i => i.folder === state.folder);
+    return items.filter(i => matchQ(i, q));
+  }
+
+  function fillList() {
+    const wrap = $('listWrap'); if (!wrap) return;
+    const isAll = state.folder === ALL;
+    const items = visibleItems();
+    const cnt = $('cnt'); if (cnt) cnt.textContent = items.length;
+    if (items.length) {
+      wrap.innerHTML = list(items, { showFolder: isAll, quickSort: state.folder === INBOX }) +
+        '<p class="hint">탭하면 열리고, 꾹 누르면 이동·삭제 메뉴가 나와요</p>';
+    } else if (state.fq.trim()) {
+      wrap.innerHTML = '<div class="empty">검색 결과가 없어요</div>';
+    } else {
+      const icon = isAll ? '🗂️' : iconOf(state.folder);
+      wrap.innerHTML = `<div class="empty"><span class="big">${esc(icon)}</span>${state.folder === INBOX ? '모두 정리했어요!' : '아직 스크랩이 없어요'}</div>`;
+    }
+  }
+
+  const hostOf = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return ''; } };
+  function titleOf(i) {
+    if (i.memo) return { text: i.memo, dim: false };
+    return { text: i.type === 'link' ? hostOf(i.url) : '인스타그램 ' + typeLabel(i.type), dim: true };
+  }
+
+  function list(items, opt) {
+    opt = opt || {};
     const targets = userFolders();
-    return '<div class="list">' + items.map(i => `
-      <div class="card" data-id="${esc(i.id)}">
-        <div class="meta">
+    return '<div class="list">' + items.map(i => {
+      const t = titleOf(i);
+      return `
+      <div class="item" data-id="${esc(i.id)}">
+        <div class="irow">
           <span class="badge${i.type === 'link' ? ' link' : ''}">${typeLabel(i.type)}</span>
-          ${showFolder ? `<span class="ftag">${esc(iconOf(i.folder))} ${esc(i.folder)}</span>` : ''}
-          <span>${fmtDate(i.savedAt)}</span>
+          <span class="ititle${t.dim ? ' dim' : ''}">${esc(t.text)}</span>
+          ${opt.showFolder ? `<span class="ifolder" title="${esc(i.folder)}">${esc(iconOf(i.folder))}</span>` : ''}
+          <span class="chev">›</span>
         </div>
-        <textarea class="memo" rows="1" placeholder="메모 추가…">${esc(i.memo)}</textarea>
-        <a class="urlline" href="${esc(i.url)}">🔗 ${esc(shortUrl(i.url))}</a>
-        <div class="actions">
-          ${i.type === 'link' ? '' : `<button class="ghost pv" data-code="${esc(i.shortcode)}">미리보기</button>`}
-          <a class="ghost" href="${esc(i.url)}">${i.type === 'link' ? '열기' : '인스타 열기'}</a>
-          ${quickSort ? '' : '<button class="ghost mv">📁 이동</button>'}
-          <button class="ghost del">삭제</button>
-        </div>
-        ${quickSort ? `<div class="sort"><small>어느 폴더에 넣을까요?</small><div class="sortchips">` +
+        ${opt.quickSort ? `<div class="sort"><div class="sortchips">` +
           targets.map(f => `<button class="sc" data-to="${esc(f.name)}">${esc(f.icon)} ${esc(f.name)}</button>`).join('') +
           `<button class="sc" data-newto="1">＋ 새 폴더</button></div></div>` : ''}
-      </div>`).join('') + '</div>';
+      </div>`;
+    }).join('') + '</div>';
+  }
+
+  /* 꾹 눌렀을 때 메뉴 */
+  function itemMenu(id) {
+    const i = state.items.find(x => x.id === id); if (!i) return;
+    const t = titleOf(i);
+    openSheet(`
+      <div class="menu-head"><b>${esc(t.text)}</b><span>${esc(iconOf(i.folder))} ${esc(i.folder)} · ${typeLabel(i.type)}</span></div>
+      <button class="pick" data-act="open"><span class="ico">🔗</span>열기</button>
+      ${i.type === 'link' ? '' : '<button class="pick" data-act="preview"><span class="ico">👀</span>미리보기</button>'}
+      <button class="pick" data-act="memo"><span class="ico">✏️</span>메모 ${i.memo ? '수정' : '추가'}</button>
+      <button class="pick" data-act="move"><span class="ico">📁</span>폴더 이동</button>
+      <button class="pick" data-act="copy"><span class="ico">📋</span>링크 복사</button>
+      <button class="pick danger" data-act="del"><span class="ico">🗑️</span>삭제</button>`);
+    $('sheetBody').onclick = async e => {
+      const b = e.target.closest('[data-act]'); if (!b) return;
+      $('sheetBody').onclick = null;
+      const act = b.dataset.act;
+      if (act === 'open') { closeSheet(); window.open(i.url, '_blank'); }
+      if (act === 'preview') {
+        openSheet(`<div class="menu-head"><b>${esc(t.text)}</b></div>
+          <iframe class="pv-frame" src="https://www.instagram.com/p/${encodeURIComponent(i.shortcode)}/embed/captioned/"></iframe>`);
+      }
+      if (act === 'memo') memoSheet(i);
+      if (act === 'move') moveSheet(id);
+      if (act === 'copy') { closeSheet(); toast(await copyText(i.url) ? '링크를 복사했어요' : '복사에 실패했어요'); }
+      if (act === 'del') {
+        closeSheet();
+        if (!confirm('이 스크랩을 지울까요?')) return;
+        state.items = state.items.filter(x => x.id !== id);
+        render(); toast('지웠어요');
+        await call('api_deleteItem', id);
+      }
+    };
+  }
+
+  function memoSheet(i) {
+    openSheet(`<h2>메모</h2>
+      <label class="field"><span>나중에 찾기 쉽게 한 줄</span><input id="mText" maxlength="200" value="${esc(i.memo)}"></label>
+      <div class="btnrow"><button class="btn sub" id="cancel">취소</button><button class="btn" id="ok">저장</button></div>`);
+    setTimeout(() => $('mText').focus(), 250);
+    $('cancel').onclick = closeSheet;
+    $('ok').onclick = async () => {
+      const v = $('mText').value.trim();
+      closeSheet();
+      if (v === i.memo) return;
+      i.memo = v; render(); toast('메모 저장됨');
+      await call('api_updateItem', i.id, { memo: v });
+    };
   }
 
   function autoGrow(el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; }
@@ -560,9 +648,10 @@
   $('fab').onclick = addSheet;
 
   $('app').addEventListener('click', async e => {
+    if (press && press.fired) { press = null; return; }   // 꾹 누르기 뒤 따라오는 탭은 무시
     const open = e.target.closest('[data-open]');
-    if (open) { state.view = 'folder'; state.folder = open.dataset.open; state.allFilter = ALL; window.scrollTo(0, 0); return render(); }
-    if (e.target.closest('#back')) { state.view = 'home'; window.scrollTo(0, 0); return render(); }
+    if (open) { state.view = 'folder'; state.folder = open.dataset.open; state.allFilter = ALL; state.fq = ''; window.scrollTo(0, 0); return render(); }
+    if (e.target.closest('#back')) { state.view = 'home'; state.fq = ''; window.scrollTo(0, 0); return render(); }
     if (e.target.closest('#newFolder')) return newFolderSheet();
     if (e.target.closest('#settings')) return showSetup();
     if (e.target.closest('#editFolder')) return editFolderSheet(state.folder);
@@ -570,52 +659,57 @@
     const fc = e.target.closest('[data-filter]');
     if (fc) { state.allFilter = fc.dataset.filter; return render(); }
     if (e.target.closest('#copyAll')) {
-      const f = state.allFilter;
-      const list = (f === ALL ? state.items : state.items.filter(i => i.folder === f)).map(i => i.url);
-      return toast(await copyText(list.join('\n')) ? '링크 ' + list.length + '개를 복사했어요' : '복사에 실패했어요');
-    }
-    const row = e.target.closest('.lrow');
-    if (row) {
-      if (e.target.closest('.lcopy')) return toast(await copyText(e.target.closest('.lcopy').dataset.url) ? '링크를 복사했어요' : '복사에 실패했어요');
-      if (e.target.closest('.lmv')) return moveSheet(row.dataset.id);
-      return;
+      const urls = visibleItems().map(i => i.url);
+      return toast(await copyText(urls.join('\n')) ? '링크 ' + urls.length + '개를 복사했어요' : '복사에 실패했어요');
     }
 
-    const card = e.target.closest('.card'); if (!card) return;
-    const id = card.dataset.id;
-
+    const item = e.target.closest('.item'); if (!item) return;
+    const id = item.dataset.id;
     const sc = e.target.closest('.sc');
     if (sc) {
       if (sc.dataset.newto) return newFolderSheet(n => moveItem(id, n));
       return moveItem(id, sc.dataset.to);
     }
-    if (e.target.classList.contains('mv')) return moveSheet(id);
-    if (e.target.classList.contains('pv')) {
-      const ex = card.querySelector('.embed');
-      if (ex) { ex.remove(); e.target.textContent = '미리보기'; return; }
-      const box = document.createElement('div'); box.className = 'embed';
-      box.innerHTML = '<iframe loading="lazy" src="https://www.instagram.com/p/' +
-        encodeURIComponent(e.target.dataset.code) + '/embed/captioned/"></iframe>';
-      card.appendChild(box); e.target.textContent = '접기';
-    }
-    if (e.target.classList.contains('del')) {
-      if (!confirm('이 스크랩을 지울까요?')) return;
-      state.items = state.items.filter(i => i.id !== id);
-      render(); toast('지웠어요');
-      await call('api_deleteItem', id);
+    if (e.target.closest('.irow')) {
+      const it = state.items.find(x => x.id === id);
+      if (it) window.open(it.url, '_blank');
     }
   });
 
-  $('app').addEventListener('input', e => { if (e.target.classList.contains('memo')) autoGrow(e.target); });
-  $('app').addEventListener('focusout', async e => {
-    if (!e.target.classList.contains('memo')) return;
-    const id = e.target.closest('.card').dataset.id;
-    const item = state.items.find(i => i.id === id);
-    const v = e.target.value.trim();
-    if (!item || item.memo === v) return;
-    item.memo = v;
-    await call('api_updateItem', id, { memo: v });
-    toast('메모 저장됨');
+  // 폴더 안 검색: 목록만 다시 그려요
+  $('app').addEventListener('input', e => {
+    if (e.target.id === 'fq') { state.fq = e.target.value; fillList(); }
+  });
+
+  /* 꾹 누르기 (0.45초) */
+  let press = null;
+  $('app').addEventListener('pointerdown', e => {
+    const it = e.target.closest('.item');
+    if (!it || e.target.closest('.sc') || (e.pointerType === 'mouse' && e.button !== 0)) { press = null; return; }
+    it.classList.add('press');
+    press = { id: it.dataset.id, el: it, x: e.clientX, y: e.clientY, fired: false };
+    press.t = setTimeout(() => {
+      if (!press) return;
+      press.fired = true; it.classList.remove('press');
+      if (navigator.vibrate) navigator.vibrate(12);
+      itemMenu(press.id);
+    }, 450);
+  });
+  function cancelPress(keep) {
+    if (!press) return;
+    clearTimeout(press.t); press.el.classList.remove('press');
+    if (!press.fired && !keep) press = null;
+  }
+  $('app').addEventListener('pointermove', e => {
+    if (press && !press.fired && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 10) cancelPress();
+  });
+  $('app').addEventListener('pointerup', () => cancelPress(true));
+  $('app').addEventListener('pointercancel', () => cancelPress());
+  // 길게 눌렀을 때 뜨는 기본 메뉴는 막고, PC에서는 오른쪽 클릭으로 메뉴 열기
+  $('app').addEventListener('contextmenu', e => {
+    const it = e.target.closest('.item'); if (!it) return;
+    e.preventDefault();
+    if (!press || !press.fired) { cancelPress(); itemMenu(it.dataset.id); }
   });
 
   if (CFG) {
