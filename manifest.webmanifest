@@ -1,6 +1,6 @@
 {
-  "name": "스크랩북",
-  "short_name": "스크랩북",
+  "name": "스꾸랩",
+  "short_name": "스꾸랩",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

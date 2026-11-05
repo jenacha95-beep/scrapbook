@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <base target="_blank">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>스크랩북</title>
+<title>스꾸랩</title>
 <meta name="theme-color" content="#f6f8fb">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="스크랩북">
+<meta name="apple-mobile-web-app-title" content="스꾸랩">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png?v=3">
@@ -52,6 +52,8 @@
   .bar h1 { font-size: 24px; margin: 0; letter-spacing: -0.03em; flex: 1; min-width: 0;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .bar h1 .ico { margin-right: 6px; }
+  .bar h1.brand { display: flex; align-items: center; gap: 10px; }
+  .bar h1.brand img { width: 34px; height: 34px; border-radius: 9px; flex: none; box-shadow: 0 1px 3px rgba(40,60,90,.15); }
   .bar .sub { color: var(--muted); font-size: 13px; font-weight: 500; margin-left: 6px; }
   .iconbtn {
     flex: none; width: 38px; height: 38px; border-radius: 12px; border: 1px solid var(--line);
@@ -274,7 +276,7 @@
     const c = readCfg() || {};
     $('app').innerHTML = `
       <div class="setup">
-        <h1>스크랩북 연결</h1>
+        <h1>스꾸랩 연결</h1>
         <p>처음 한 번만 입력하면 이 기기에 저장돼요.</p>
         <label class="field"><span>웹앱 주소 (…/exec 로 끝나는 주소)</span>
           <input id="cApi" type="url" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(c.api || '')}"></label>
@@ -359,7 +361,7 @@
     const st = stats();
     const q = state.q.trim().toLowerCase();
     let html = `
-      <div class="bar"><h1>스크랩북</h1><button class="iconbtn" id="settings" aria-label="연결 설정">⚙︎</button></div>
+      <div class="bar"><h1 class="brand"><img src="icon-192.png?v=3" alt="">스꾸랩</h1><button class="iconbtn" id="settings" aria-label="연결 설정">⚙︎</button></div>
       <input class="search" id="q" type="search" placeholder="메모·폴더 검색" value="${esc(state.q)}">`;
 
     if (q) {
