@@ -148,6 +148,11 @@
   .ititle.dim { color: var(--muted); }
   .ifolder { flex: none; font-size: 16px; }
   .chev { flex: none; color: var(--faint); font-size: 18px; line-height: 1; }
+  .ibtns { flex: none; display: flex; gap: 4px; margin-right: -4px; }
+  .ibtn { width: 32px; height: 32px; border: 0; border-radius: 10px; background: var(--chip); font-size: 15px;
+    display: grid; place-items: center; padding: 0; }
+  .ibtn:active { background: var(--primary-soft); }
+  .irow { padding-top: 9px !important; padding-bottom: 9px !important; }
   .list .item .sort { margin: 0 14px; padding: 0 0 12px; border-top: 0; }
   .list .item .sortchips { padding-top: 0; }
   .list { gap: 8px; }
@@ -444,7 +449,7 @@
     const cnt = $('cnt'); if (cnt) cnt.textContent = items.length;
     if (items.length) {
       wrap.innerHTML = list(items, { showFolder: isAll, quickSort: state.folder === INBOX }) +
-        '<p class="hint">탭하면 열리고, 꾹 누르면 이동·삭제 메뉴가 나와요</p>';
+        '<p class="hint">탭하면 열리고, 꾹 누르면 링크 복사·삭제가 나와요</p>';
     } else if (state.fq.trim()) {
       wrap.innerHTML = '<div class="empty">검색 결과가 없어요</div>';
     } else {
@@ -470,7 +475,11 @@
           <span class="badge${i.type === 'link' ? ' link' : ''}">${typeLabel(i.type)}</span>
           <span class="ititle${t.dim ? ' dim' : ''}">${esc(t.text)}</span>
           ${opt.showFolder ? `<span class="ifolder" title="${esc(i.folder)}">${esc(iconOf(i.folder))}</span>` : ''}
-          <span class="chev">›</span>
+          <span class="ibtns">
+            ${i.type === 'link' ? '' : '<button class="ibtn" data-act="preview" aria-label="미리보기">👀</button>'}
+            <button class="ibtn" data-act="move" aria-label="폴더 이동">📁</button>
+            <button class="ibtn" data-act="memo" aria-label="메모 수정">✏️</button>
+          </span>
         </div>
         ${opt.quickSort ? `<div class="sort"><div class="sortchips">` +
           targets.map(f => `<button class="sc" data-to="${esc(f.name)}">${esc(f.icon)} ${esc(f.name)}</button>`).join('') +
@@ -485,25 +494,13 @@
     const t = titleOf(i);
     openSheet(`
       <div class="menu-head"><b>${esc(t.text)}</b><span>${esc(iconOf(i.folder))} ${esc(i.folder)} · ${typeLabel(i.type)}</span></div>
-      <button class="pick" data-act="open"><span class="ico">🔗</span>열기</button>
-      ${i.type === 'link' ? '' : '<button class="pick" data-act="preview"><span class="ico">👀</span>미리보기</button>'}
-      <button class="pick" data-act="memo"><span class="ico">✏️</span>메모 ${i.memo ? '수정' : '추가'}</button>
-      <button class="pick" data-act="move"><span class="ico">📁</span>폴더 이동</button>
       <button class="pick" data-act="copy"><span class="ico">📋</span>링크 복사</button>
       <button class="pick danger" data-act="del"><span class="ico">🗑️</span>삭제</button>`);
     $('sheetBody').onclick = async e => {
       const b = e.target.closest('[data-act]'); if (!b) return;
       $('sheetBody').onclick = null;
-      const act = b.dataset.act;
-      if (act === 'open') { closeSheet(); window.open(i.url, '_blank'); }
-      if (act === 'preview') {
-        openSheet(`<div class="menu-head"><b>${esc(t.text)}</b></div>
-          <iframe class="pv-frame" src="https://www.instagram.com/p/${encodeURIComponent(i.shortcode)}/embed/captioned/"></iframe>`);
-      }
-      if (act === 'memo') memoSheet(i);
-      if (act === 'move') moveSheet(id);
-      if (act === 'copy') { closeSheet(); toast(await copyText(i.url) ? '링크를 복사했어요' : '복사에 실패했어요'); }
-      if (act === 'del') {
+      if (b.dataset.act === 'copy') { closeSheet(); toast(await copyText(i.url) ? '링크를 복사했어요' : '복사에 실패했어요'); }
+      if (b.dataset.act === 'del') {
         closeSheet();
         if (!confirm('이 스크랩을 지울까요?')) return;
         state.items = state.items.filter(x => x.id !== id);
@@ -511,6 +508,11 @@
         await call('api_deleteItem', id);
       }
     };
+  }
+
+  function previewSheet(i) {
+    openSheet(`<div class="menu-head"><b>${esc(titleOf(i).text)}</b></div>
+      <iframe class="pv-frame" src="https://www.instagram.com/p/${encodeURIComponent(i.shortcode)}/embed/captioned/"></iframe>`);
   }
 
   function memoSheet(i) {
@@ -670,10 +672,15 @@
       if (sc.dataset.newto) return newFolderSheet(n => moveItem(id, n));
       return moveItem(id, sc.dataset.to);
     }
-    if (e.target.closest('.irow')) {
-      const it = state.items.find(x => x.id === id);
-      if (it) window.open(it.url, '_blank');
+    const it = state.items.find(x => x.id === id); if (!it) return;
+    const ib = e.target.closest('.ibtn');
+    if (ib) {
+      if (ib.dataset.act === 'preview') return previewSheet(it);
+      if (ib.dataset.act === 'move') return moveSheet(id);
+      if (ib.dataset.act === 'memo') return memoSheet(it);
+      return;
     }
+    if (e.target.closest('.irow')) window.open(it.url, '_blank');
   });
 
   // 폴더 안 검색: 목록만 다시 그려요
@@ -685,7 +692,7 @@
   let press = null;
   $('app').addEventListener('pointerdown', e => {
     const it = e.target.closest('.item');
-    if (!it || e.target.closest('.sc') || (e.pointerType === 'mouse' && e.button !== 0)) { press = null; return; }
+    if (!it || e.target.closest('.sc') || e.target.closest('.ibtn') || (e.pointerType === 'mouse' && e.button !== 0)) { press = null; return; }
     it.classList.add('press');
     press = { id: it.dataset.id, el: it, x: e.clientX, y: e.clientY, fired: false };
     press.t = setTimeout(() => {
