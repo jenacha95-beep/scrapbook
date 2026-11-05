@@ -10,6 +10,9 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="스꾸랩">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Jua&display=swap" rel="stylesheet">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png?v=3">
 <link rel="icon" type="image/png" href="icon-192.png?v=3">
@@ -36,7 +39,7 @@
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   body {
     margin: 0; background: var(--bg); color: var(--ink);
-    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", sans-serif;
+    font: 15px/1.5 "Gowun Dodum", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
     -webkit-font-smoothing: antialiased;
   }
   input, select, textarea, button { font: inherit; color: inherit; }
@@ -212,6 +215,13 @@
   .setup .btn { width: 100%; margin-top: 8px; }
   .setup .err { color: var(--pink-ink); font-size: 13px; min-height: 18px; margin-top: 10px; }
   .loading { text-align: center; color: var(--muted); padding: 80px 0; }
+  /* 제목·숫자: 주아 (굵기는 폰트 자체로) */
+  .bar h1, .bar .sub, .section-label, .qt b, .qt .num, .tile .name, .sheet h2, .setup h1, .menu-head b,
+  .badge, .fchip, .copyall, .btn, .empty .big + *, .fab {
+    font-family: "Jua", "Gowun Dodum", -apple-system, "Apple SD Gothic Neo", sans-serif; font-weight: 400;
+  }
+  .qt .num { font-size: 30px; letter-spacing: 0; }
+  .bar h1 { letter-spacing: -0.01em; }
   .toast {
     position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%) translateY(16px); z-index: 30;
     background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 12px; font-size: 14px;
